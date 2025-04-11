@@ -1,0 +1,21 @@
+.env
+/tests/
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+*.log
+*.egg-info
+*.egg
+*.zip
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+venv/
+data/
+outputs/
+
+# pycache at any level
+**/__pycache__
