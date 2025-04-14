@@ -4,13 +4,16 @@ A smart, fast, and accurate system to extract structured data from unstructured 
 
 ## 🚀 Features
 
-*   📦 **Upload + Extract**: Upload PDF lab reports and automatically extract data into structured CSV format.
+*   📦 **Upload + Extract**: Upload PDF lab reports and automatically extract data into structured JSON and CSV format.
 *   🧠 **LangGraph Integration**: Uses LangGraph for orchestrating data extraction workflows with multi-agent coordination.
 *   ✅ **Accuracy Validation**: Compares actual vs extracted CSV data to ensure precision.
 *   👥 **Consensus Agent**: Aggregates output from multiple models to agree on the best data.
 *   🔍 **PDF Utils**: Converts PDFs to images and normalizes messy extracted data.
 *   📊 **Data Validators**: Enforces consistency and quality using custom validators.
 *   🐛 **Comprehensive Logging**: Built-in logs to trace errors and simplify debugging.
+*   ⚡ **Parallel Extraction**: Runs all extraction models simultaneously for faster processing.
+*   🔄 **Optimized Data Flow**: Stores extraction results by agent for better traceability and consensus generation.
+*   📈 **Statistical Analysis**: Provides detailed statistics on extraction quality and consensus reliability.
 
 ## 🛠️ Tech Stack
 
@@ -20,20 +23,36 @@ A smart, fast, and accurate system to extract structured data from unstructured 
 *   **Pandas** – for CSV handling and accuracy checks
 *   **OpenCV / PDF Libraries** – for PDF-to-image conversion
 *   **CORS Middleware** – for secure API usage
+*   **Concurrent Futures** – for parallel processing of extractions
 
 ## 📂 Project Structure
 
 ```
 MedXtract/
-├── data/                    # For storing sample data
+├── uploads/                 # For storing uploaded PDFs
 ├── outputs/                 # Processed outputs
+│   ├── consensus_data/      # Consensus results from multiple models
+│   ├── final_extraction/    # Final processed extraction results
+│   │   ├── csv/             # CSV outputs for easier viewing
+│   ├── raw_extractions/     # Raw extraction outputs from each model
 ├── tests/                   # Test scripts
+│   ├── upload.py            # Script to test the upload endpoint
 ├── utils/                   # Helper utilities
 │   ├── accuracy_checker.py  # Validation of extraction accuracy
-│   ├── consensus_agent.py   # Agent for merging multiple outputs
-│   ├── extractors.py        # PDF data extraction logic
+│   ├── consensus_utils.py   # Utilities for merging multiple outputs
+│   ├── extraction_utils.py  # PDF data extraction logic
+│   ├── file_utils.py        # File handling utilities
 │   ├── normalizer.py        # Data normalization utilities
-│   └── validators.py        # Data quality validation
+│   ├── pdf_utils.py         # PDF processing utilities
+│   ├── response_utils.py    # API response formatting
+│   ├── state_utils.py       # LangGraph state management
+│   ├── statistical_utils.py # Statistical consensus calculation
+│   ├── validation_utils.py  # Data validation utilities
+│   ├── validators.py        # Data validators
+│   ├── workflow_nodes.py    # LangGraph workflow nodes
+├── agents/                  # Extraction agents
+│   ├── extraction_agent.py  # Parallel extraction implementation
+│   ├── consensus_agent.py   # Consensus generation between models
 ├── .env                     # Environment variables
 ├── .env.example             # Example env configuration
 ├── .gitignore               # Git ignore file
@@ -73,26 +92,104 @@ pip install -r requirements.txt
 python main.py
 ```
 
-### Try it out
+The server will start at `http://localhost:8000`.
 
-Hit `http://localhost:8000/docs` for the interactive Swagger UI.  
-Upload a lab report and see the magic happen ✨
+### Running tests
+
+To test the upload functionality:
+
+```
+cd MedXtract
+python tests/upload.py [path_to_pdf_file]
+```
+
+If you don't provide a path, it will look for the file specified in `config.py` as `REPORT_FILE_PATH`.
+
+You can also set the path in your .env file:
+
+```
+REPORT_FILE_PATH=path/to/your/lab/report.pdf
+```
+
+### Using the API
+
+Hit `http://localhost:8000/docs` for the interactive Swagger UI.
+
+#### POST /upload-report/
+
+Upload a lab report PDF and extract structured data:
+
+```
+POST /upload-report/
+```
+
+Response format:
+
+```
+{
+  "id": "20231120_123456_abc12345",
+  "data": {
+    "biomarkers": [
+      {
+        "test_name": "Hemoglobin",
+        "value": 13.5,
+        "unit": "g/dL",
+        "reference_range": "13.0 - 17.0"
+      }
+    ]
+  },
+  "statistics": {
+    "extraction_success_rate": 0.95,
+    "consensus_confidence": 0.87,
+    "model_agreement": 0.91
+  },
+  "files": {
+    "pdf": "uploads/20231120_123456_abc12345.pdf",
+    "json_output": "outputs/final_extraction/final_extraction_20231120_123456.json",
+    "consensus": "outputs/consensus_data/statistical_consensus_20231120_123456.json",
+    "csv_output": "outputs/final_extraction/csv/final_result_20231120_123456.csv"
+  },
+  "metadata": {
+    "extraction_timestamp": "20231120_123456",
+    "total_models": 3,
+    "successful_models": 3
+  }
+}
+```
+
+#### POST /verify-accuracy/
+
+Compare actual vs. extracted CSV data to validate extraction:
+
+```
+POST /verify-accuracy/
+```
 
 ## 🧪 Example Workflow
 
 1.  Upload a PDF.
-2.  LangGraph orchestrates model agents to extract fields.
-3.  Consensus agent merges outputs.
-4.  Validators clean and ensure quality.
-5.  Output: a clean, verified CSV.
+2.  LangGraph orchestrates parallel extraction using multiple model agents simultaneously.
+3.  Extraction results are stored by agent for better traceability.
+4.  Consensus agent merges outputs from all successful extractions.
+5.  Validators clean and ensure quality.
+6.  Output: a clean, verified JSON/CSV with detailed extraction metrics and statistics.
+
+## 📈 API Response Statistics
+
+The API now includes detailed statistics about the extraction process:
+
+*   **extraction\_success\_rate**: Percentage of successful extractions from all models
+*   **consensus\_confidence**: Average confidence score of the consensus decisions
+*   **model\_agreement**: Level of agreement between different extraction models
+*   **biomarker\_confidence**: Confidence scores for individual biomarkers
 
 ## 📌 TODOs
 
-*   Move agents to dedicated modules (currently in utils/)
 *   Add support for more lab report formats
 *   Integrate with EMR systems
 *   Add frontend for upload + results view
 *   Benchmark agent accuracy
+*   Add caching for repeated extractions
 
 ## 🤝 Contributing
 

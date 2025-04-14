@@ -1,5 +1,4 @@
 .env
-/tests/
 *.pyc
 __pycache__/
 *.pyo
@@ -14,7 +13,7 @@ __pycache__/
 *.tar.bz2
 *.tar.xz
 venv/
-data/
+uploads/
 outputs/
 
 # pycache at any level

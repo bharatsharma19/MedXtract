@@ -29,8 +29,6 @@ def run_langgraph_workflow(pdf_path: str):
     Returns:
         Dictionary containing the workflow results
     """
-    # Ensure output directories exist
-    ensure_output_directories()
 
     # Create initial state
     initial_state = create_initial_state(pdf_path)
@@ -53,7 +51,9 @@ def run_langgraph_workflow(pdf_path: str):
 
     # Compile and run the workflow
     graph = workflow.compile()
+    logger.info("Starting workflow execution")
     final_state = graph.invoke(initial_state)
+    logger.info(f"Workflow completed with status: {final_state['status']}")
 
     # Create and return the final response
     response = create_workflow_response(
@@ -61,10 +61,12 @@ def run_langgraph_workflow(pdf_path: str):
         pdf_path=final_state["pdf_path"],
         metadata=final_state["metadata"],
         extracted_data=final_state["extracted_data"],
-        consensus_data=final_state["consensus_data"],
-        llm_consensus_data=final_state["llm_consensus_data"],
-        validated_data=final_state["validated_data"],
-        normalized_data=final_state["normalized_data"],
+        extraction_by_agent=final_state.get("extraction_by_agent", {}),
+        successful_extractions=final_state.get("successful_extractions", []),
+        consensus_data=final_state.get("consensus_data", {}),
+        llm_consensus_data=final_state.get("llm_consensus_data", {}),
+        validated_data=final_state.get("validated_data", {}),
+        normalized_data=final_state.get("normalized_data", {}),
         errors=final_state.get("errors", []),
     )
 

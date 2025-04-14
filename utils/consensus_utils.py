@@ -1,7 +1,9 @@
 import logging
+import os
 from typing import Dict, Any, List
 from utils.file_utils import get_timestamp, save_json_data, sanitize_biomarkers
 from agents.consensus_agent import run_consensus_analysis
+from utils.extraction_utils import save_biomarkers_as_csv
 
 logger = logging.getLogger(__name__)
 
@@ -83,10 +85,17 @@ def run_llm_consensus_pipeline(
             }
         )
 
-        # Save LLM consensus data
+        # Save LLM consensus data - JSON only, no CSV
+        consensus_dir = "outputs/consensus_data"
+        os.makedirs(consensus_dir, exist_ok=True)
         consensus_file = f"llm_consensus_{timestamp}.json"
-        save_json_data(llm_consensus_data, "outputs/consensus_data", consensus_file)
-        logger.info(f"Saved LLM consensus to outputs/consensus_data/{consensus_file}")
+        save_json_data(llm_consensus_data, consensus_dir, consensus_file)
+        logger.info(f"Saved LLM consensus to {consensus_dir}/{consensus_file}")
+
+        # No CSV for consensus data - CSV will only be generated for final extraction
+
+        # Add consensus file to metadata
+        llm_consensus_data["metadata"]["consensus_file"] = consensus_file
 
         return llm_consensus_data
 
@@ -101,8 +110,10 @@ def run_llm_consensus_pipeline(
         }
 
         # Save error consensus data for debugging
+        consensus_dir = "outputs/consensus_data"
+        os.makedirs(consensus_dir, exist_ok=True)
         error_file = f"llm_consensus_error_{timestamp}.json"
-        save_json_data(default_consensus, "outputs/consensus_data", error_file)
-        logger.info(f"Saved error LLM consensus to outputs/consensus_data/{error_file}")
+        save_json_data(default_consensus, consensus_dir, error_file)
+        logger.info(f"Saved error LLM consensus to {consensus_dir}/{error_file}")
 
         return default_consensus

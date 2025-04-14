@@ -23,3 +23,8 @@ MAX_TOKENS = 8192
 
 # Consensus Configuration
 CONFIDENCE_THRESHOLD = 0.7  # Minimum confidence score for consensus (0.0 to 1.0)
+
+# File paths
+REPORT_FILE_PATH = os.getenv(
+    "REPORT_FILE_PATH", os.path.join("uploads", "sample_report.pdf")
+)

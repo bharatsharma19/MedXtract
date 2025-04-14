@@ -3,6 +3,10 @@ from typing import Dict, Any, List, Union, Tuple
 from utils.file_utils import get_timestamp, save_json_data, sanitize_biomarkers
 from utils.validators import validate_agents_data
 from utils.normalizer import normalize_and_map
+import os
+
+# Import the CSV saving function
+from utils.extraction_utils import save_biomarkers_as_csv
 
 logger = logging.getLogger(__name__)
 
@@ -58,14 +62,18 @@ def run_validation_pipeline(
             {"timestamp": timestamp, "source": "validation", "validated": True}
         )
 
-        # Save validated data
+        # Save validated data as JSON only
+        output_dir = "outputs/final_extraction"
+        os.makedirs(output_dir, exist_ok=True)
         validated_file = f"validated_data_{timestamp}.json"
-        save_json_data(validated_data, "outputs/final_extraction", validated_file)
-        logger.info(
-            f"Saved validated data to outputs/final_extraction/{validated_file}"
-        )
+        save_json_data(validated_data, output_dir, validated_file)
+        logger.info(f"Saved validated data to {output_dir}/{validated_file}")
 
-        return validated_data, {"validated_file": validated_file}
+        # No CSV for intermediate validation steps - only for final results
+
+        return validated_data, {
+            "validated_file": validated_file,
+        }
 
     except Exception as e:
         logger.error(f"Validation error: {str(e)}")
@@ -129,21 +137,34 @@ def run_normalization_pipeline(
                 },
             }
 
-        # Save normalized data
+        # Save normalized data as JSON only
+        output_dir = "outputs/final_extraction"
+        os.makedirs(output_dir, exist_ok=True)
         normalized_file = f"normalized_data_{timestamp}.json"
-        save_json_data(normalized_data, "outputs/final_extraction", normalized_file)
-        logger.info(
-            f"Saved normalized data to outputs/final_extraction/{normalized_file}"
-        )
+        save_json_data(normalized_data, output_dir, normalized_file)
+        logger.info(f"Saved normalized data to {output_dir}/{normalized_file}")
 
-        # Save a copy as final result
+        # No CSV for normalized data - only for final results
+
+        # Save a copy as final result - both JSON and CSV (since this is final)
         final_file = f"final_result_{timestamp}.json"
-        save_json_data(normalized_data, "outputs/final_extraction", final_file)
-        logger.info(f"Saved final result to outputs/final_extraction/{final_file}")
+        save_json_data(normalized_data, output_dir, final_file)
+        logger.info(f"Saved final result to {output_dir}/{final_file}")
+
+        # Generate CSV for final result only
+        final_csv = None
+        if normalized_data.get("biomarkers"):
+            csv_dir = "outputs/final_extraction/csv"
+            os.makedirs(csv_dir, exist_ok=True)
+            final_csv = f"final_result_{timestamp}.csv"
+            save_biomarkers_as_csv(normalized_data["biomarkers"], csv_dir, final_csv)
+            logger.info(f"Saved final result CSV to {csv_dir}/{final_csv}")
+            final_csv = f"csv/{final_csv}"  # Store relative path to final_extraction
 
         return normalized_data, {
             "normalized_file": normalized_file,
             "final_file": final_file,
+            "final_csv": final_csv,
         }
 
     except Exception as e:

@@ -10,6 +10,8 @@ class WorkflowState(TypedDict):
 
     pdf_path: str
     extracted_data: List[Dict[str, Any]]
+    extraction_by_agent: Dict[str, Dict[str, Any]]  # Store data by agent name
+    successful_extractions: List[Dict[str, Any]]  # Store successful extractions
     validated_data: Dict[str, Any]
     normalized_data: Dict[str, Any]
     consensus_data: Dict[str, Any]
@@ -31,6 +33,8 @@ def create_initial_state(pdf_path: str) -> WorkflowState:
     return WorkflowState(
         pdf_path=pdf_path,
         extracted_data=[],
+        extraction_by_agent={},  # Initialize empty dict for extraction by agent
+        successful_extractions=[],  # Initialize empty list for successful extractions
         validated_data={},
         normalized_data={},
         consensus_data={},

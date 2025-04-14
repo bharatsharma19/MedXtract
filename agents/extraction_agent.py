@@ -14,6 +14,7 @@ from config import (
     GOOGLE_API_KEY,
     ANTHROPIC_API_KEY,
 )
+import concurrent.futures
 
 logger = logging.getLogger(__name__)
 
@@ -150,6 +151,12 @@ def extract_with_model(model, pdf_path: str, model_name: str) -> Dict[str, Any]:
         if "notes" not in result:
             result["notes"] = []
 
+        # Add source model information to each biomarker
+        if "biomarkers" in result and isinstance(result["biomarkers"], list):
+            for biomarker in result["biomarkers"]:
+                if isinstance(biomarker, dict):
+                    biomarker["source_model"] = model_name
+
         # Add extraction metadata
         result["_metadata"] = {
             "model_type": model_name,
@@ -263,8 +270,8 @@ def run_all_extractions(pdf_path: str) -> Tuple[List[Dict[str, Any]], Dict[str, 
                 "No valid API keys provided. Please check your configuration."
             )
 
-        # Run extractions with available models
-        for agent in agents:
+        # Function to process a single model extraction
+        def process_model_extraction(agent):
             model_name = agent["name"]
             model = agent["model"]
 
@@ -284,35 +291,62 @@ def run_all_extractions(pdf_path: str) -> Tuple[List[Dict[str, Any]], Dict[str, 
                 if "error" in output.get("_metadata", {}):
                     result["error"] = output["_metadata"]["error"]
 
-                results.append(result)
-
-                # Create model-specific directory
-                model_dir = f"outputs/raw_extractions/{model_name}"
-                os.makedirs(model_dir, exist_ok=True)
-
-                # Save output to file with timestamp
-                output_path = f"{model_dir}/{timestamp}.json"
-                with open(output_path, "w") as f:
-                    json.dump(output, f, indent=2)
-                logger.info(f"Saved output to {output_path}")
-
+                # Note: No longer saving files here, this will be handled by extraction_utils.py
+                return result
             except Exception as e:
                 logger.error(f"Error in {model_name} extraction: {str(e)}")
-                results.append(
-                    {
-                        "model": model_name,
-                        "output": {
-                            "biomarkers": [],
-                            "notes": [f"Extraction error: {str(e)}"],
-                            "_metadata": {"status": "failed", "error": str(e)},
-                        },
-                        "timestamp": timestamp,
-                        "status": "failed",
-                        "error": str(e),
-                    }
-                )
+                return {
+                    "model": model_name,
+                    "output": {
+                        "biomarkers": [],
+                        "notes": [f"Extraction error: {str(e)}"],
+                        "_metadata": {"status": "failed", "error": str(e)},
+                    },
+                    "timestamp": timestamp,
+                    "status": "failed",
+                    "error": str(e),
+                }
 
-        return results, {}
+        # Run extractions in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(agents)) as executor:
+            # Submit all extraction tasks
+            future_to_agent = {
+                executor.submit(process_model_extraction, agent): agent
+                for agent in agents
+            }
+
+            # Collect results as they complete
+            for future in concurrent.futures.as_completed(future_to_agent):
+                agent = future_to_agent[future]
+                try:
+                    result = future.result()
+                    results.append(result)
+                except Exception as e:
+                    logger.error(
+                        f"Extraction with {agent['name']} failed with error: {str(e)}"
+                    )
+                    results.append(
+                        {
+                            "model": agent["name"],
+                            "output": {
+                                "biomarkers": [],
+                                "notes": [f"Exception during extraction: {str(e)}"],
+                                "_metadata": {"status": "failed", "error": str(e)},
+                            },
+                            "timestamp": timestamp,
+                            "status": "failed",
+                            "error": str(e),
+                        }
+                    )
+
+        # Prepare initial consensus data (will be calculated fully in extraction_utils)
+        initial_consensus = {
+            "biomarkers": [],
+            "notes": ["Initial consensus placeholder - to be calculated"],
+            "_timestamp": timestamp,
+        }
+
+        return results, initial_consensus
 
     except Exception as e:
         logger.error(f"Error in run_all_extractions: {str(e)}")

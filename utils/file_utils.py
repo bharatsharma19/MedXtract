@@ -62,6 +62,7 @@ def ensure_output_directories():
         "outputs/raw_extractions",
         "outputs/consensus_data",
         "outputs/final_extraction",
+        "outputs/final_extraction/csv",  # Dedicated directory for CSV files in final extraction
     ]
     for directory in directories:
         os.makedirs(directory, exist_ok=True)
@@ -102,6 +103,12 @@ def sanitize_biomarkers(biomarkers_data):
                 if safe_biomarker.get(field) is None:
                     safe_biomarker[field] = ""
 
+            # Preserve source model information
+            if "source_model" not in safe_biomarker and "_metadata" in biomarkers_data:
+                model_type = biomarkers_data["_metadata"].get("model_type")
+                if model_type:
+                    safe_biomarker["source_model"] = model_type
+
             safe_biomarkers.append(safe_biomarker)
 
         result = biomarkers_data.copy()
@@ -132,3 +139,32 @@ def sanitize_biomarkers(biomarkers_data):
 
     # Return empty list for any other case
     return []
+
+
+def clean_old_csv_files():
+    """Remove any CSV files from raw_extractions and consensus_data folders"""
+    try:
+        # Clean consensus data CSV files
+        consensus_dir = "outputs/consensus_data"
+        if os.path.exists(consensus_dir):
+            for file in os.listdir(consensus_dir):
+                if file.endswith(".csv"):
+                    file_path = os.path.join(consensus_dir, file)
+                    os.remove(file_path)
+                    logger.info(f"Removed old CSV file: {file_path}")
+
+        # Clean raw extractions CSV files
+        raw_dir = "outputs/raw_extractions"
+        if os.path.exists(raw_dir):
+            for model_dir in os.listdir(raw_dir):
+                model_path = os.path.join(raw_dir, model_dir)
+                if os.path.isdir(model_path):
+                    for file in os.listdir(model_path):
+                        if file.endswith(".csv"):
+                            file_path = os.path.join(model_path, file)
+                            os.remove(file_path)
+                            logger.info(f"Removed old CSV file: {file_path}")
+
+        logger.info("Cleanup of old CSV files completed")
+    except Exception as e:
+        logger.error(f"Error cleaning old CSV files: {str(e)}")

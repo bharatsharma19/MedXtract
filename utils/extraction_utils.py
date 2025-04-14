@@ -1,7 +1,13 @@
 import os
 import logging
+import csv
 from typing import Dict, Any, List, Tuple
-from utils.file_utils import get_timestamp, save_json_data, sanitize_biomarkers
+from utils.file_utils import (
+    get_timestamp,
+    save_json_data,
+    sanitize_biomarkers,
+    clean_old_csv_files,
+)
 from utils.statistical_utils import calculate_statistical_consensus
 from agents.extraction_agent import run_all_extractions
 
@@ -30,8 +36,9 @@ def process_extraction_results(
 
     timestamp = get_timestamp()
     successful_extractions = []
+    extraction_by_agent = {}
 
-    # Save individual raw extractions
+    # Process raw extractions but save only to outputs folder
     for result in results:
         model_name = result.get("model", "unknown")
         output_data = result.get("output", {})
@@ -46,16 +53,33 @@ def process_extraction_results(
             and isinstance(output_data.get("biomarkers"), list)
             and output_data["biomarkers"]
         ):
+            # Add source model information to each biomarker
+            if "biomarkers" in output_data and isinstance(
+                output_data["biomarkers"], list
+            ):
+                for biomarker in output_data["biomarkers"]:
+                    if isinstance(biomarker, dict):
+                        # Add source model information
+                        biomarker["source_model"] = model_name
+
             # Sanitize biomarkers using the utility function
             output_data = sanitize_biomarkers(output_data)
             successful_extractions.append(output_data)
 
-            # Save raw extraction
+            # Store in extraction_by_agent dictionary for easier access
+            extraction_by_agent[model_name] = output_data
+
+            # Save raw extraction (only once with timestamp)
+            # IMPORTANT: This is the only place where raw extraction files should be saved
             model_dir = f"outputs/raw_extractions/{model_name}"
             os.makedirs(model_dir, exist_ok=True)
-            raw_file = f"{timestamp}_{model_name}.json"
+            raw_file = (
+                f"{timestamp}.json"  # Using only timestamp since folder has model name
+            )
             save_json_data(output_data, model_dir, raw_file)
             logger.info(f"Saved raw extraction to {model_dir}/{raw_file}")
+
+            # No CSV for raw extractions
 
             logger.info(
                 f"Successful extraction from {model_name}: {len(output_data['biomarkers'])} biomarkers"
@@ -78,6 +102,7 @@ def process_extraction_results(
                 f"Calculating consensus with {len(sanitized_extractions)} extractions"
             )
 
+            # Pass model information to the consensus calculation
             consensus_data = calculate_statistical_consensus(sanitized_extractions)
 
             if not consensus_data or not isinstance(
@@ -92,11 +117,16 @@ def process_extraction_results(
                 }
 
             # Save statistical consensus
+            consensus_dir = "outputs/consensus_data"
+            os.makedirs(consensus_dir, exist_ok=True)
             consensus_file = f"statistical_consensus_{timestamp}.json"
-            save_json_data(consensus_data, "outputs/consensus_data", consensus_file)
+            save_json_data(consensus_data, consensus_dir, consensus_file)
             logger.info(
-                f"Saved statistical consensus to outputs/consensus_data/{consensus_file}"
+                f"Saved statistical consensus to {consensus_dir}/{consensus_file}"
             )
+
+            # No CSV for consensus data - only generating JSON
+            # CSV will only be generated for final extraction results
         else:
             logger.warning("No valid sanitized extractions for consensus")
             consensus_data = {
@@ -123,9 +153,49 @@ def process_extraction_results(
             if successful_extractions
             else None
         ),
+        "extraction_by_agent_count": len(extraction_by_agent),
+        "parallel_extraction": True,
     }
 
+    # Return all the processed data
     return results, successful_extractions, consensus_data, metadata
+
+
+def save_biomarkers_as_csv(biomarkers, directory, filename):
+    """Save biomarkers as CSV file for easier viewing
+
+    Args:
+        biomarkers: List of biomarker dictionaries
+        directory: Directory to save to
+        filename: Filename to use
+    """
+    if not biomarkers:
+        return
+
+    os.makedirs(directory, exist_ok=True)
+    filepath = os.path.join(directory, filename)
+
+    # Extract all possible field names from biomarkers
+    fieldnames = set()
+    for biomarker in biomarkers:
+        if isinstance(biomarker, dict):
+            fieldnames.update(biomarker.keys())
+
+    # Ensure critical fields are first in order
+    ordered_fields = ["test_name", "value", "unit", "reference_range"]
+    # Add remaining fields
+    ordered_fields.extend([f for f in fieldnames if f not in ordered_fields])
+
+    try:
+        with open(filepath, "w", newline="") as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=ordered_fields)
+            writer.writeheader()
+            for biomarker in biomarkers:
+                if isinstance(biomarker, dict):
+                    writer.writerow(biomarker)
+        logger.info(f"Successfully saved biomarkers to CSV: {filepath}")
+    except Exception as e:
+        logger.error(f"Failed to save CSV: {str(e)}")
 
 
 def run_extraction_pipeline(
@@ -143,14 +213,19 @@ def run_extraction_pipeline(
             - Consensus data
             - Metadata dictionary
     """
+    # Clean up any old CSV files from raw extractions and consensus data
+    clean_old_csv_files()
+
     # Validate PDF path
     if not os.path.exists(pdf_path):
         logger.error(f"PDF file not found: {pdf_path}")
         return [], [], {}, {"error": f"PDF file not found: {pdf_path}"}
 
     try:
-        # Run extractions
+        logger.info(f"Starting parallel extraction on {pdf_path}")
+        # Run extractions in parallel
         results, initial_consensus = run_all_extractions(pdf_path)
+        logger.info(f"Completed parallel extraction with {len(results)} results")
 
         # Process results
         all_results, successful_extractions, consensus_data, metadata = (
@@ -163,14 +238,47 @@ def run_extraction_pipeline(
 
             # Save this consensus
             timestamp = metadata.get("extraction_timestamp", get_timestamp())
+            consensus_dir = "outputs/consensus_data"
+            os.makedirs(consensus_dir, exist_ok=True)
             consensus_file = f"statistical_consensus_{timestamp}.json"
-            save_json_data(consensus_data, "outputs/consensus_data", consensus_file)
-            logger.info(
-                f"Saved initial consensus to outputs/consensus_data/{consensus_file}"
-            )
+            save_json_data(consensus_data, consensus_dir, consensus_file)
+            logger.info(f"Saved initial consensus to {consensus_dir}/{consensus_file}")
+
+            # No CSV for consensus data - only for final extraction
 
             # Update metadata
             metadata["consensus_file"] = consensus_file
+        else:
+            # Update metadata
+            metadata["consensus_file"] = consensus_data.get("consensus_file")
+
+        # Create a final combined output file with all the data
+        final_output = {
+            "status": "success",
+            "timestamp": metadata.get("extraction_timestamp", get_timestamp()),
+            "pdf_path": pdf_path,
+            "extracted_data": successful_extractions,
+            "consensus_data": consensus_data,
+            "metadata": metadata,
+        }
+
+        # Save final output to outputs/final_extraction
+        final_dir = "outputs/final_extraction"
+        os.makedirs(final_dir, exist_ok=True)
+        final_file = f"final_extraction_{metadata.get('extraction_timestamp', get_timestamp())}.json"
+        save_json_data(final_output, final_dir, final_file)
+        logger.info(f"Saved final combined output to {final_dir}/{final_file}")
+
+        # Generate CSV for final biomarkers
+        if consensus_data and consensus_data.get("biomarkers"):
+            csv_dir = "outputs/final_extraction/csv"
+            os.makedirs(csv_dir, exist_ok=True)
+            final_csv = f"final_extraction_{metadata.get('extraction_timestamp', get_timestamp())}.csv"
+            save_biomarkers_as_csv(consensus_data["biomarkers"], csv_dir, final_csv)
+            logger.info(f"Saved final combined CSV to {csv_dir}/{final_csv}")
+            metadata["final_csv"] = (
+                f"csv/{final_csv}"  # Use relative path to final_extraction
+            )
 
         return all_results, successful_extractions, consensus_data, metadata
 

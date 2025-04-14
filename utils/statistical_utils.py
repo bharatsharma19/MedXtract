@@ -30,7 +30,14 @@ def calculate_statistical_consensus(
 
     for test_name, biomarkers in biomarker_groups.items():
         if len(biomarkers) < 2:
-            consensus_data["biomarkers"].append(biomarkers[0])
+            # Add source model info before adding to consensus
+            source_model = biomarkers[0].get(
+                "source_model",
+                biomarkers[0].get("_metadata", {}).get("model_type", "unknown"),
+            )
+            consensus_biomarker = biomarkers[0].copy()
+            consensus_biomarker["source_models"] = [source_model]
+            consensus_data["biomarkers"].append(consensus_biomarker)
             confidence_scores[test_name] = 0.5
             continue
 
@@ -69,6 +76,18 @@ def calculate_statistical_consensus(
         ranges = [b.get("reference_range", "").strip() for b in biomarkers]
         range_consensus = max(set(ranges), key=ranges.count) if ranges else ""
 
+        # Get source models for this biomarker
+        source_models = []
+        for biomarker in biomarkers:
+            # First check if source_model was directly added
+            source_model = biomarker.get("source_model")
+            if not source_model:
+                # Try to get from metadata
+                source_model = biomarker.get("_metadata", {}).get("model_type")
+
+            if source_model and source_model not in source_models:
+                source_models.append(source_model)
+
         # Only include if confidence meets threshold
         if confidence >= CONFIDENCE_THRESHOLD:
             consensus_data["biomarkers"].append(
@@ -78,10 +97,7 @@ def calculate_statistical_consensus(
                     "unit": unit_consensus,
                     "reference_range": range_consensus,
                     "confidence": confidence,
-                    "source_models": [
-                        b.get("_metadata", {}).get("model_type", "unknown")
-                        for b in biomarkers
-                    ],
+                    "source_models": source_models if source_models else ["unknown"],
                 }
             )
             confidence_scores[test_name] = confidence

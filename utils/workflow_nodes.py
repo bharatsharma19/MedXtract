@@ -36,7 +36,7 @@ def extract_all_agents(state: WorkflowState) -> Dict[str, Any]:
         # Create output directories
         ensure_output_directories()
 
-        # Run extraction pipeline
+        # Run extraction pipeline (now in parallel)
         results, successful_extractions, consensus_data, metadata = (
             run_extraction_pipeline(pdf_path)
         )
@@ -52,11 +52,22 @@ def extract_all_agents(state: WorkflowState) -> Dict[str, Any]:
             state["status"] = "failed"
             return {"next": END}
 
+        # Store individual agent extractions in a more structured format
+        extraction_by_agent = {}
+        for result in results:
+            model_name = result.get("model", "unknown")
+            if result.get("status") == "success":
+                extraction_by_agent[model_name] = result.get("output", {})
+
         # Update state
         state["extracted_data"] = results
+        state["extraction_by_agent"] = extraction_by_agent
         state["consensus_data"] = consensus_data
         state["metadata"].update(metadata)
         state["status"] = "extracted"
+
+        # Store successful extractions for future use
+        state["successful_extractions"] = successful_extractions
 
         return {"next": "llm_consensus"}
 
@@ -77,21 +88,27 @@ def llm_consensus(state: WorkflowState) -> Dict[str, Any]:
         Dict with next node to execute
     """
     try:
-        # Get successful extractions with valid biomarkers
-        successful_extractions = []
-        for result in state["extracted_data"]:
-            try:
-                output_data = result.get("output", {})
-                if (
-                    result.get("status") == "success"
-                    and isinstance(output_data, dict)
-                    and isinstance(output_data.get("biomarkers"), list)
-                    and output_data["biomarkers"]
-                ):
-                    successful_extractions.append(output_data)
-            except Exception as e:
-                logger.error(f"Error processing extraction for LLM consensus: {str(e)}")
-                continue
+        # Get successful extractions from state (already processed)
+        successful_extractions = state.get("successful_extractions", [])
+
+        # Fallback to calculating from extracted_data if not available
+        if not successful_extractions:
+            successful_extractions = []
+            for result in state["extracted_data"]:
+                try:
+                    output_data = result.get("output", {})
+                    if (
+                        result.get("status") == "success"
+                        and isinstance(output_data, dict)
+                        and isinstance(output_data.get("biomarkers"), list)
+                        and output_data["biomarkers"]
+                    ):
+                        successful_extractions.append(output_data)
+                except Exception as e:
+                    logger.error(
+                        f"Error processing extraction for LLM consensus: {str(e)}"
+                    )
+                    continue
 
         if not successful_extractions:
             state["errors"].append("No valid extractions for LLM consensus analysis")
@@ -100,7 +117,7 @@ def llm_consensus(state: WorkflowState) -> Dict[str, Any]:
 
         # Run LLM consensus
         llm_consensus_data = run_llm_consensus_pipeline(
-            successful_extractions, model_type="gpt-4"
+            successful_extractions, model_type="gemini"
         )
 
         # Check if we have valid LLM consensus data
@@ -159,15 +176,20 @@ def validate(state: WorkflowState) -> Dict[str, Any]:
         Dict with next node to execute
     """
     try:
-        successful_extractions = []
-        for result in state["extracted_data"]:
-            if result.get("status") == "success" and "output" in result:
-                extraction_data = result["output"]
-                if (
-                    isinstance(extraction_data, dict)
-                    and "biomarkers" in extraction_data
-                ):
-                    successful_extractions.append(extraction_data)
+        # Use stored successful_extractions if available
+        successful_extractions = state.get("successful_extractions", [])
+
+        # Fallback to calculating from extracted_data if not available
+        if not successful_extractions:
+            successful_extractions = []
+            for result in state["extracted_data"]:
+                if result.get("status") == "success" and "output" in result:
+                    extraction_data = result["output"]
+                    if (
+                        isinstance(extraction_data, dict)
+                        and "biomarkers" in extraction_data
+                    ):
+                        successful_extractions.append(extraction_data)
 
         if not successful_extractions:
             state["errors"].append("No successful extractions to validate")
