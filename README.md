@@ -4,26 +4,26 @@ A smart, fast, and accurate system to extract structured data from unstructured 
 
 ## 🚀 Features
 
-*   📦 **Upload + Extract**: Upload PDF lab reports and automatically extract data into structured JSON and CSV format.
-*   🧠 **LangGraph Integration**: Uses LangGraph for orchestrating data extraction workflows with multi-agent coordination.
-*   ✅ **Accuracy Validation**: Compares actual vs extracted CSV data to ensure precision.
-*   👥 **Consensus Agent**: Aggregates output from multiple models to agree on the best data.
-*   🔍 **PDF Utils**: Converts PDFs to images and normalizes messy extracted data.
-*   📊 **Data Validators**: Enforces consistency and quality using custom validators.
-*   🐛 **Comprehensive Logging**: Built-in logs to trace errors and simplify debugging.
-*   ⚡ **Parallel Extraction**: Runs all extraction models simultaneously for faster processing.
-*   🔄 **Optimized Data Flow**: Stores extraction results by agent for better traceability and consensus generation.
-*   📈 **Statistical Analysis**: Provides detailed statistics on extraction quality and consensus reliability.
+- 📦 **Upload + Extract**: Upload PDF lab reports and automatically extract data into structured JSON and CSV format.
+- 🧠 **LangGraph Integration**: Uses LangGraph for orchestrating data extraction workflows with multi-agent coordination.
+- ✅ **Accuracy Validation**: Compares actual vs extracted CSV data to ensure precision.
+- 👥 **Consensus Agent**: Aggregates output from multiple models to agree on the best data.
+- 🔍 **PDF Utils**: Converts PDFs to images and normalizes messy extracted data.
+- 📊 **Data Validators**: Enforces consistency and quality using custom validators.
+- 🐛 **Comprehensive Logging**: Built-in logs to trace errors and simplify debugging.
+- ⚡ **Parallel Extraction**: Runs all extraction models simultaneously for faster processing.
+- 🔄 **Optimized Data Flow**: Stores extraction results by agent for better traceability and consensus generation.
+- 📈 **Statistical Analysis**: Provides detailed statistics on extraction quality and consensus reliability.
 
 ## 🛠️ Tech Stack
 
-*   **Python 3.10+**
-*   **FastAPI** – lightning-fast API layer
-*   **LangGraph** – workflow + multi-agent coordination
-*   **Pandas** – for CSV handling and accuracy checks
-*   **OpenCV / PDF Libraries** – for PDF-to-image conversion
-*   **CORS Middleware** – for secure API usage
-*   **Concurrent Futures** – for parallel processing of extractions
+- **Python 3.10+**
+- **FastAPI** – lightning-fast API layer
+- **LangGraph** – workflow + multi-agent coordination
+- **Pandas** – for CSV handling and accuracy checks
+- **OpenCV / PDF Libraries** – for PDF-to-image conversion
+- **CORS Middleware** – for secure API usage
+- **Concurrent Futures** – for parallel processing of extractions
 
 ## 📂 Project Structure
 
@@ -178,18 +178,18 @@ POST /verify-accuracy/
 
 The API now includes detailed statistics about the extraction process:
 
-*   **extraction\_success\_rate**: Percentage of successful extractions from all models
-*   **consensus\_confidence**: Average confidence score of the consensus decisions
-*   **model\_agreement**: Level of agreement between different extraction models
-*   **biomarker\_confidence**: Confidence scores for individual biomarkers
+- **extraction_success_rate**: Percentage of successful extractions from all models
+- **consensus_confidence**: Average confidence score of the consensus decisions
+- **model_agreement**: Level of agreement between different extraction models
+- **biomarker_confidence**: Confidence scores for individual biomarkers
 
 ## 📌 TODOs
 
-*   Add support for more lab report formats
-*   Integrate with EMR systems
-*   Add frontend for upload + results view
-*   Benchmark agent accuracy
-*   Add caching for repeated extractions
+- Add support for more lab report formats
+- Integrate with EMR systems
+- Add frontend for upload + results view
+- Benchmark agent accuracy
+- Add caching for repeated extractions
 
 ## 🤝 Contributing
 
