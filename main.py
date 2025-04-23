@@ -2,7 +2,11 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from routes import router
-from config import OPENAI_API_KEY, GOOGLE_API_KEY, ANTHROPIC_API_KEY  # Just to confirm envs loaded
+from config import (
+    OPENAI_API_KEY,
+    GOOGLE_API_KEY,
+    ANTHROPIC_API_KEY,
+)  # Just to confirm envs loaded
 
 app = FastAPI(
     title="Lab Report Extraction System with LangGraph",
@@ -21,6 +25,7 @@ app.add_middleware(
 
 app.include_router(router)
 
+
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
@@ -28,6 +33,8 @@ async def generic_exception_handler(request: Request, exc: Exception):
         content={"detail": f"Internal server error: {str(exc)}"},
     )
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
